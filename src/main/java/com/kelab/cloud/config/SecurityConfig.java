@@ -38,8 +38,8 @@ public class SecurityConfig {
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(AbstractHttpConfigurer::disable)
-
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .sessionManagement(session -> session
+                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint((request, response, authException) -> {
@@ -55,12 +55,38 @@ public class SecurityConfig {
 
                 .authorizeHttpRequests(auth -> auth
 
+                        // ── AUTH ────────────────────────────────────────
                         .requestMatchers("/api/auth/**").permitAll()
 
-                        .requestMatchers(HttpMethod.GET, "/api/products/**").permitAll()
-
+                        // ── PREFLIGHT ───────────────────────────────────
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
+                        // ── MARKETPLACE PÚBLICO (GET) ───────────────────
+
+                        // Productos: marketplace global, detalle, imágenes, categoría
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/products/marketplace",
+                                "/api/products/marketplace/**",
+                                "/api/products/category/**",
+                                "/api/products/{id}",
+                                "/api/products/{id}/images",
+                                "/api/products/store/**")
+                        .permitAll()
+
+                        // Categorías: listar activas (público)
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/categories")
+                        .permitAll()
+
+                        // Tiendas: listar aprobadas, detalle, imágenes, productos
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/store",
+                                "/api/store/{id}",
+                                "/api/store/{id}/images",
+                                "/api/store/store/{storeId}")
+                        .permitAll()
+
+                        // ── TODO LO DEMÁS REQUIERE AUTH ─────────────────
                         .anyRequest().authenticated())
 
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
@@ -85,22 +111,17 @@ public class SecurityConfig {
         CorsConfiguration configuration = new CorsConfiguration();
 
         configuration.setAllowedOrigins(List.of(
-                "http://localhost:3000", "http://localhost:3001"));
+                "http://localhost:3000",
+                "http://localhost:3001", "http://localhost:3002", "http://172.20.10.2:3002"));
 
         configuration.setAllowedMethods(List.of(
-                "GET",
-                "POST",
-                "PUT",
-                "PATCH",
-                "DELETE",
-                "OPTIONS"));
+                "GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
 
         configuration.setAllowedHeaders(List.of("*"));
 
         configuration.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-
         source.registerCorsConfiguration("/**", configuration);
 
         return source;

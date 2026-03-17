@@ -25,31 +25,73 @@ public class ProductController {
         private final ProductService productService;
 
         // =========================================================
-        // PUBLIC ENDPOINTS
+        // MARKETPLACE GLOBAL
+        // =========================================================
+
+        /**
+         * GET /api/products/marketplace
+         * Búsqueda global paginada — el frontend del marketplace consume este endpoint.
+         * Parámetros opcionales: name, categoryId, minPrice, maxPrice, city,
+         * page, size, sortBy (price|createdAt), sortDir (asc|desc)
+         */
+        @GetMapping("/marketplace")
+        public ResponseEntity<Page<ProductResponse>> getMarketplaceProducts(
+                        @RequestParam(required = false) String name,
+                        @RequestParam(required = false) Long categoryId,
+                        @RequestParam(required = false) BigDecimal minPrice,
+                        @RequestParam(required = false) BigDecimal maxPrice,
+                        @RequestParam(required = false) String city,
+                        @RequestParam(required = false) Integer page,
+                        @RequestParam(required = false) Integer size,
+                        @RequestParam(required = false) String sortBy,
+                        @RequestParam(required = false) String sortDir) {
+
+                return ResponseEntity.ok(
+                                productService.getMarketplaceProducts(
+                                                name, categoryId, minPrice, maxPrice,
+                                                city, page, size, sortBy, sortDir));
+        }
+
+        /**
+         * GET /api/products/marketplace/featured
+         * Productos destacados globales para el banner del marketplace.
+         */
+        @GetMapping("/marketplace/featured")
+        public ResponseEntity<List<ProductResponse>> getGlobalFeaturedProducts() {
+                return ResponseEntity.ok(productService.getGlobalFeaturedProducts());
+        }
+
+        /**
+         * GET /api/products/category/{categoryId}
+         * Todos los productos activos de una categoría (útil para páginas de
+         * categoría).
+         */
+        @GetMapping("/category/{categoryId}")
+        public ResponseEntity<List<ProductResponse>> getProductsByCategory(
+                        @PathVariable Long categoryId) {
+                return ResponseEntity.ok(productService.getProductsByCategory(categoryId));
+        }
+
+        // =========================================================
+        // PUBLIC ENDPOINTS (por store)
         // =========================================================
 
         @GetMapping("/{productId}")
         public ResponseEntity<ProductResponse> getProductById(
                         @PathVariable Long productId) {
-
-                return ResponseEntity.ok(
-                                productService.getProductById(productId));
+                return ResponseEntity.ok(productService.getProductById(productId));
         }
 
         @GetMapping("/store/{storeId}/featured")
         public ResponseEntity<List<ProductResponse>> getFeaturedProducts(
                         @PathVariable Long storeId) {
-
-                return ResponseEntity.ok(
-                                productService.getFeaturedProducts(storeId));
+                return ResponseEntity.ok(productService.getFeaturedProducts(storeId));
         }
 
         @GetMapping("/store/{storeId}/out-of-stock")
         public ResponseEntity<List<ProductResponse>> getOutOfStockProducts(
                         @PathVariable Long storeId) {
-
-                return ResponseEntity.ok(
-                                productService.getOutOfStockProducts(storeId));
+                return ResponseEntity.ok(productService.getOutOfStockProducts(storeId));
         }
 
         @GetMapping("/store/{storeId}/search")
@@ -66,15 +108,8 @@ public class ProductController {
 
                 return ResponseEntity.ok(
                                 productService.filterProductsPaged(
-                                                storeId,
-                                                name,
-                                                minPrice,
-                                                maxPrice,
-                                                status,
-                                                page,
-                                                size,
-                                                sortBy,
-                                                sortDir));
+                                                storeId, name, minPrice, maxPrice,
+                                                status, page, size, sortBy, sortDir));
         }
 
         // =========================================================
@@ -89,7 +124,6 @@ public class ProductController {
                         Principal principal) {
 
                 ProductResponse response = productService.createProduct(storeId, request, principal.getName());
-
                 return ResponseEntity.status(201).body(response);
         }
 
@@ -114,7 +148,6 @@ public class ProductController {
                 return ResponseEntity.noContent().build();
         }
 
-        // Endpoint original — se mantiene por compatibilidad
         @GetMapping("/store/{storeId}/owner")
         @PreAuthorize("hasRole('USER')")
         public ResponseEntity<List<ProductResponse>> getAllProductsForOwner(
@@ -125,7 +158,6 @@ public class ProductController {
                                 productService.getAllProductsByStoreForOwner(storeId, principal.getName()));
         }
 
-        // ✅ NUEVO — el storeId se resuelve desde el JWT, sin exponerlo en la URL
         @GetMapping("/my-store")
         @PreAuthorize("hasRole('USER')")
         public ResponseEntity<List<ProductResponse>> getMyStoreProducts(
@@ -164,8 +196,7 @@ public class ProductController {
         public ResponseEntity<List<String>> getImages(
                         @PathVariable Long productId) {
 
-                return ResponseEntity.ok(
-                                productService.getProductImages(productId));
+                return ResponseEntity.ok(productService.getProductImages(productId));
         }
 
         // =========================================================
@@ -174,27 +205,21 @@ public class ProductController {
 
         @PatchMapping("/admin/{productId}/deactivate")
         @PreAuthorize("hasRole('ADMIN')")
-        public ResponseEntity<Void> adminDeactivateProduct(
-                        @PathVariable Long productId) {
-
+        public ResponseEntity<Void> adminDeactivateProduct(@PathVariable Long productId) {
                 productService.adminDeactivateProduct(productId);
                 return ResponseEntity.noContent().build();
         }
 
         @PatchMapping("/admin/{productId}/activate")
         @PreAuthorize("hasRole('ADMIN')")
-        public ResponseEntity<Void> adminActivateProduct(
-                        @PathVariable Long productId) {
-
+        public ResponseEntity<Void> adminActivateProduct(@PathVariable Long productId) {
                 productService.adminActivateProduct(productId);
                 return ResponseEntity.noContent().build();
         }
 
         @PatchMapping("/admin/{productId}/toggle-featured")
         @PreAuthorize("hasRole('ADMIN')")
-        public ResponseEntity<Void> adminToggleFeatured(
-                        @PathVariable Long productId) {
-
+        public ResponseEntity<Void> adminToggleFeatured(@PathVariable Long productId) {
                 productService.adminToggleFeatured(productId);
                 return ResponseEntity.noContent().build();
         }

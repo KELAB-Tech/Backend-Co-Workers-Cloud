@@ -8,6 +8,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.kelab.cloud.category.model.Category;
 import com.kelab.cloud.store.model.Store;
 
 @Entity
@@ -43,6 +44,14 @@ public class Product {
 
     @Column(nullable = false, length = 500)
     private String mainImageUrl;
+
+    // =============================
+    // CATEGORY ← NUEVO
+    // =============================
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "category_id")
+    private Category category;
 
     // =============================
     // STATUS
@@ -97,7 +106,7 @@ public class Product {
                 ? ProductStatus.OUT_OF_STOCK
                 : ProductStatus.ACTIVE;
 
-        if (this.featured == false) {
+        if (!this.featured) {
             this.featured = false;
         }
     }
@@ -118,7 +127,7 @@ public class Product {
     }
 
     // =============================
-    // DOMAIN METHODS (RECOMENDADO)
+    // DOMAIN METHODS
     // =============================
 
     public void deactivate() {

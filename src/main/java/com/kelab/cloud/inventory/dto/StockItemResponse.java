@@ -12,4 +12,6 @@ public class StockItemResponse {
     private Integer currentStock;
     private Integer minStock;
     private String status; // ACTIVE | OUT_OF_STOCK | INACTIVE
+    private String mainImageUrl; // ← NUEVO
+    private String categoryIcon; // ← NUEVO
 }

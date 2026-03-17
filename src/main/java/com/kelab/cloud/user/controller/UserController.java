@@ -1,11 +1,14 @@
 package com.kelab.cloud.user.controller;
 
 import java.security.Principal;
+import java.util.Map;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import com.kelab.cloud.cloudinary.service.CloudinaryService;
 import com.kelab.cloud.user.dto.UserProfileResponse;
 import com.kelab.cloud.user.dto.UserSelfUpdateRequest;
 import com.kelab.cloud.user.service.UserService;
@@ -19,15 +22,15 @@ import lombok.RequiredArgsConstructor;
 public class UserController {
 
     private final UserService userService;
+    private final CloudinaryService cloudinaryService;
 
     // =========================================================
-    // GET MY PROFILE — lee email del JWT, sin exponer ID en URL
+    // GET MY PROFILE
     // GET /api/users/me
     // =========================================================
     @GetMapping("/me")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<UserProfileResponse> getMyProfile(Principal principal) {
-
         return ResponseEntity.ok(
                 userService.getMyProfile(principal.getName()));
     }
@@ -41,8 +44,23 @@ public class UserController {
     public ResponseEntity<UserProfileResponse> updateMyProfile(
             @Valid @RequestBody UserSelfUpdateRequest request,
             Principal principal) {
-
         return ResponseEntity.ok(
                 userService.updateMyProfile(principal.getName(), request));
+    }
+
+    // =========================================================
+    // UPLOAD AVATAR
+    // POST /api/users/upload/avatar
+    // =========================================================
+    @PostMapping("/upload/avatar")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Map<String, String>> uploadAvatar(
+            @RequestParam("file") MultipartFile file,
+            Principal principal) {
+
+        // ✅ Nombre correcto del método en CloudinaryService
+        String url = cloudinaryService.uploadImage(file, "avatars");
+
+        return ResponseEntity.ok(Map.of("url", url));
     }
 }

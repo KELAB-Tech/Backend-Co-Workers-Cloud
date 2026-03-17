@@ -1,28 +1,33 @@
 package com.kelab.cloud.user.service;
 
-import java.util.List;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 
-import com.kelab.cloud.admin.service.AdminService;
+import com.kelab.cloud.common.dto.PagedResponse;
+import com.kelab.cloud.store.model.StoreStatus;
 import com.kelab.cloud.user.dto.UserProfileResponse;
 import com.kelab.cloud.user.dto.UserSelfUpdateRequest;
 import com.kelab.cloud.user.dto.UserUpdateRequest;
+import com.kelab.cloud.user.model.ActorType;
 import com.kelab.cloud.user.model.Role;
+import com.kelab.cloud.user.model.TipoPersona;
 import com.kelab.cloud.user.model.User;
 import com.kelab.cloud.user.repo.UserRepository;
+import com.kelab.cloud.user.spec.UserSpecification;
 
 import jakarta.transaction.Transactional;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 
 @Service
 public class UserService {
 
-    private final AdminService adminService;
     private final UserRepository userRepository;
 
-    public UserService(AdminService adminService, UserRepository userRepository) {
-        this.adminService = adminService;
+    public UserService(UserRepository userRepository) {
         this.userRepository = userRepository;
     }
 
@@ -46,7 +51,6 @@ public class UserService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
 
-        // Validar que el nuevo email no esté tomado por otro usuario
         if (!user.getEmail().equals(request.getEmail())) {
             if (userRepository.existsByEmail(request.getEmail())) {
                 throw new IllegalStateException("Ese email ya está registrado por otro usuario");
@@ -60,31 +64,56 @@ public class UserService {
     }
 
     // ==============================
-    // LISTAR TODOS LOS USUARIOS (ADMIN)
+    // GET USER BY ID (ADMIN)
     // ==============================
-    public List<User> getAllUsers() {
-        return userRepository.findAll();
+    public UserProfileResponse getUserById(Long id) {
+
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Usuario no encontrado con id: " + id));
+
+        return mapToResponse(user);
     }
 
     // ==============================
-    // ACTUALIZAR USUARIO (ADMIN — puede cambiar tipoPersona y actorType)
+    // LISTAR USUARIOS (paginado + filtros)
+    // ==============================
+    public PagedResponse<UserProfileResponse> getAllUsers(
+            String name,
+            String email,
+            TipoPersona tipoPersona,
+            ActorType actorType,
+            Boolean enabled,
+            Pageable pageable) {
+
+        Specification<User> spec = UserSpecification.filter(
+                name, email, tipoPersona, actorType, enabled);
+
+        Page<UserProfileResponse> page = userRepository
+                .findAll(spec, pageable)
+                .map(this::mapToResponse);
+
+        return PagedResponse.of(page);
+    }
+
+    // ==============================
+    // ACTUALIZAR USUARIO (ADMIN)
     // ==============================
     @Transactional
-    public User updateUser(Long id, UserUpdateRequest request) {
+    public UserProfileResponse updateUser(Long id, UserUpdateRequest request) {
 
-        User existingUser = userRepository.findById(id)
+        User user = userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
 
-        existingUser.setName(request.getName());
-        existingUser.setEmail(request.getEmail());
-        existingUser.setTipoPersona(request.getTipoPersona());
-        existingUser.setActorType(request.getActorType());
+        user.setName(request.getName().trim());
+        user.setEmail(request.getEmail().trim().toLowerCase());
+        user.setTipoPersona(request.getTipoPersona());
+        user.setActorType(request.getActorType());
 
-        return userRepository.save(existingUser);
+        return mapToResponse(userRepository.save(user));
     }
 
     // ==============================
-    // ADMIN - Suspend / Activate User
+    // SUSPEND USER
     // ==============================
     @Transactional
     public void suspendUser(Long userId) {
@@ -92,17 +121,39 @@ public class UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
 
-        if (!user.isEnabled()) {
-            throw new RuntimeException("El usuario ya está suspendido");
-        }
+        if (!user.isEnabled())
+            throw new IllegalStateException("El usuario ya está suspendido");
 
         user.setEnabled(false);
+
+        if (user.getStore() != null && user.getStore().getStatus() == StoreStatus.APPROVED) {
+            user.getStore().setStatus(StoreStatus.SUSPENDED);
+            user.getStore().setActive(false);
+        }
+
         userRepository.save(user);
     }
 
+    // ==============================
+    // ACTIVATE USER
+    // ==============================
     @Transactional
-    public void activateUser(Long id) {
-        adminService.activateUser(id);
+    public void activateUser(Long userId) {
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+
+        if (user.isEnabled())
+            throw new IllegalStateException("El usuario ya está activo");
+
+        user.setEnabled(true);
+
+        if (user.getStore() != null && user.getStore().getStatus() == StoreStatus.SUSPENDED) {
+            user.getStore().setStatus(StoreStatus.APPROVED);
+            user.getStore().setActive(true);
+        }
+
+        userRepository.save(user);
     }
 
     // ==============================

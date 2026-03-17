@@ -2,15 +2,21 @@ package com.kelab.cloud.store.controller;
 
 import com.kelab.cloud.store.dto.StoreRequest;
 import com.kelab.cloud.store.dto.StoreResponse;
+import com.kelab.cloud.common.dto.PagedResponse;
 import com.kelab.cloud.marketplace.dto.ProductResponse;
 import com.kelab.cloud.marketplace.service.ProductService;
 import com.kelab.cloud.store.dto.StoreImageResponse;
 import com.kelab.cloud.store.service.StoreService;
+import com.kelab.cloud.user.model.ActorType;
+
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import java.security.Principal;
 import java.util.List;
 
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -37,11 +43,23 @@ public class StoreController {
     // PUBLIC - List Stores (only approved)
     // ==============================
     @GetMapping
-    public ResponseEntity<List<StoreResponse>> getAllStores(
+    public ResponseEntity<PagedResponse<StoreResponse>> getAllStores(
             @RequestParam(required = false) String city,
-            @RequestParam(required = false) String name) {
+            @RequestParam(required = false) String name,
+            @RequestParam(required = false) ActorType actorType,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "12") int size,
+            @RequestParam(defaultValue = "createdAt") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir) {
 
-        return ResponseEntity.ok(storeService.getAllStores(city, name));
+        Sort sort = sortDir.equalsIgnoreCase("asc")
+                ? Sort.by(sortBy).ascending()
+                : Sort.by(sortBy).descending();
+
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        return ResponseEntity.ok(
+                storeService.getAllStores(city, name, actorType, pageable));
     }
 
     // ==============================

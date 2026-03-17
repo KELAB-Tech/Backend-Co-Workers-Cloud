@@ -11,14 +11,19 @@ import com.kelab.cloud.store.repo.StoreRepository;
 import com.kelab.cloud.user.model.TipoPersona;
 import com.kelab.cloud.user.model.User;
 import com.kelab.cloud.user.repo.UserRepository;
-
 import lombok.RequiredArgsConstructor;
-
 import java.util.List;
 import java.util.stream.Collectors;
-
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+// Agrega este import al tope
+import com.kelab.cloud.common.dto.PagedResponse;
+import com.kelab.cloud.store.spec.StoreSpecification;
+import com.kelab.cloud.user.model.ActorType;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 
 @Service
 @RequiredArgsConstructor
@@ -284,5 +289,44 @@ public class StoreService {
                 .imageUrl(image.getImageUrl())
                 .description(image.getDescription())
                 .build();
+    }
+
+    // ==============================
+    // PUBLIC - List Approved Stores (paginado + filtros dinámicos)
+    // ==============================
+    public PagedResponse<StoreResponse> getAllStores(
+            String city,
+            String name,
+            ActorType actorType,
+            Pageable pageable) {
+
+        Specification<Store> spec = StoreSpecification.filter(
+                city, name, StoreStatus.APPROVED, actorType, true);
+
+        Page<StoreResponse> page = storeRepository
+                .findAll(spec, pageable)
+                .map(this::mapToResponse);
+
+        return PagedResponse.of(page);
+    }
+
+    // ==============================
+    // ADMIN - List All Stores (paginado + cualquier status)
+    // ==============================
+    public PagedResponse<StoreResponse> getAllStoresAdmin(
+            String city,
+            String name,
+            StoreStatus status,
+            ActorType actorType,
+            Pageable pageable) {
+
+        Specification<Store> spec = StoreSpecification.filter(
+                city, name, status, actorType, null);
+
+        Page<StoreResponse> page = storeRepository
+                .findAll(spec, pageable)
+                .map(this::mapToResponse);
+
+        return PagedResponse.of(page);
     }
 }

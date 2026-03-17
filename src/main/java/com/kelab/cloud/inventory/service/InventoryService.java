@@ -189,6 +189,7 @@ public class InventoryService {
         Store store = findStoreOrThrow(email);
         List<Product> products = productRepository.findByStore(store);
 
+        // ✅ REEMPLAZA este bloque en getCurrentStock()
         return products.stream().map(p -> {
             int minStock = stockConfigRepository.findByProduct(p)
                     .map(StockConfig::getMinStock)
@@ -200,6 +201,8 @@ public class InventoryService {
                     .currentStock(p.getStock())
                     .minStock(minStock)
                     .status(p.getStatus().name())
+                    .mainImageUrl(p.getMainImageUrl()) // ← NUEVO
+                    .categoryIcon(p.getCategory() != null ? p.getCategory().getIcon() : null) // ← NUEVO
                     .build();
         }).toList();
     }
