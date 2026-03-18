@@ -30,6 +30,7 @@ public class AdminService {
     // ==============================
     // DASHBOARD
     // ==============================
+    @Transactional(readOnly = true)
     public AdminDashboardResponse getDashboard() {
 
         // ==============================
@@ -71,12 +72,12 @@ public class AdminService {
         // ==============================
 
         List<AdminProductSummaryResponse> lastProducts = productRepository
-                .findTop5ByOrderByCreatedAtDesc()
+                .findTop5ByOrderByCreatedAtDescWithStore()
                 .stream()
                 .map(p -> AdminProductSummaryResponse.builder()
                         .id(p.getId())
                         .name(p.getName())
-                        .storeName(p.getStore().getName())
+                        .storeName(p.getStore().getName()) // ahora sí funciona
                         .price(p.getPrice())
                         .build())
                 .toList();
