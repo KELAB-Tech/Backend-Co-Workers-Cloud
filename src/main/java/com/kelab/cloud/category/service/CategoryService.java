@@ -4,8 +4,8 @@ import com.kelab.cloud.category.dto.CategoryRequest;
 import com.kelab.cloud.category.dto.CategoryResponse;
 import com.kelab.cloud.category.model.Category;
 import com.kelab.cloud.category.repo.CategoryRepository;
-import com.kelab.cloud.marketplace.repo.ProductRepository;
 import com.kelab.cloud.marketplace.model.ProductStatus;
+import com.kelab.cloud.marketplace.repo.ProductRepository;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -23,6 +23,7 @@ public class CategoryService {
     // =========================================================
     // PUBLIC — listar categorías activas con conteo de productos
     // =========================================================
+    @Transactional(readOnly = true)
     public List<CategoryResponse> getAllActiveCategories() {
         return categoryRepository.findByActiveTrue()
                 .stream()
@@ -33,6 +34,7 @@ public class CategoryService {
     // =========================================================
     // ADMIN — listar todas (incluyendo inactivas)
     // =========================================================
+    @Transactional(readOnly = true)
     public List<CategoryResponse> getAllCategories() {
         return categoryRepository.findAll()
                 .stream()
@@ -69,7 +71,6 @@ public class CategoryService {
         Category category = categoryRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Categoría no encontrada"));
 
-        // Validar que el nuevo nombre no exista en otra categoría
         categoryRepository.findByNameIgnoreCase(request.getName().trim())
                 .ifPresent(existing -> {
                     if (!existing.getId().equals(id)) {
@@ -98,15 +99,13 @@ public class CategoryService {
     }
 
     // =========================================================
-    // PRIVATE
+    // PRIVATE — sin acceder a colecciones lazy
     // =========================================================
     private CategoryResponse mapToResponse(Category category) {
 
-        long productCount = (category.getProducts() == null)
-                ? 0
-                : category.getProducts().stream()
-                        .filter(p -> p.getStatus() == ProductStatus.ACTIVE)
-                        .count();
+        // ✅ Contamos con query directa — NUNCA tocamos category.getProducts()
+        long productCount = productRepository
+                .countByCategoryAndStatus(category, ProductStatus.ACTIVE);
 
         return CategoryResponse.builder()
                 .id(category.getId())

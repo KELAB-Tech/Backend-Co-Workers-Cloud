@@ -116,4 +116,6 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
         long countByStockLessThan(Integer stock);
 
         long countByCreatedAtAfter(java.time.LocalDateTime date);
+
+        long countByCategoryAndStatus(Category category, ProductStatus status);
 }
