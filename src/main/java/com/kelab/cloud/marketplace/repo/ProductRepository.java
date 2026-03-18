@@ -8,6 +8,7 @@ import com.kelab.cloud.store.model.Store;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -118,4 +119,8 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
         long countByCreatedAtAfter(java.time.LocalDateTime date);
 
         long countByCategoryAndStatus(Category category, ProductStatus status);
+
+        @Query("SELECT p FROM Product p JOIN FETCH p.store ORDER BY p.createdAt DESC")
+        List<Product> findTop5ByOrderByCreatedAtDescWithStore();
+
 }
