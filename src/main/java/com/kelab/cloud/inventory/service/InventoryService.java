@@ -25,9 +25,9 @@ public class InventoryService {
     private final StockConfigRepository stockConfigRepository;
 
     // =========================================================
-    // RESUMEN GENERAL del inventario (dashboard)
+    // RESUMEN GENERAL
     // =========================================================
-
+    @Transactional(readOnly = true)
     public InventorySummaryResponse getSummary(String email) {
 
         Store store = findStoreOrThrow(email);
@@ -66,9 +66,8 @@ public class InventoryService {
     }
 
     // =========================================================
-    // REGISTRAR MOVIMIENTO (entrada / salida / ajuste)
+    // REGISTRAR MOVIMIENTO
     // =========================================================
-
     @Transactional
     public MovementResponse registerMovement(MovementRequest request, String email) {
 
@@ -84,19 +83,17 @@ public class InventoryService {
             case SALIDA -> {
                 if (request.getQuantity() > stockBefore) {
                     throw new IllegalStateException(
-                            "Stock insuficiente. Disponible: " + stockBefore + ", solicitado: "
-                                    + request.getQuantity());
+                            "Stock insuficiente. Disponible: " + stockBefore
+                                    + ", solicitado: " + request.getQuantity());
                 }
                 stockAfter = stockBefore - request.getQuantity();
             }
-            case AJUSTE -> stockAfter = request.getQuantity(); // ajuste directo al valor
+            case AJUSTE -> stockAfter = request.getQuantity();
             default -> throw new IllegalArgumentException("Tipo de movimiento inválido");
         }
 
-        // Actualizar stock en el producto (reutiliza el método de dominio)
         product.updateStock(stockAfter);
 
-        // Guardar movimiento
         InventoryMovement movement = InventoryMovement.builder()
                 .product(product)
                 .type(request.getType())
@@ -111,59 +108,45 @@ public class InventoryService {
     }
 
     // =========================================================
-    // HISTORIAL DE MOVIMIENTOS de la tienda
+    // HISTORIAL DE MOVIMIENTOS
     // =========================================================
-
+    @Transactional(readOnly = true)
     public List<MovementResponse> getMovements(String email) {
-
         Store store = findStoreOrThrow(email);
-
         return movementRepository.findByStore(store)
-                .stream()
-                .map(this::mapMovement)
-                .toList();
+                .stream().map(this::mapMovement).toList();
     }
 
-    // Movimientos filtrados por tipo
+    @Transactional(readOnly = true)
     public List<MovementResponse> getMovementsByType(String email, MovementType type) {
-
         Store store = findStoreOrThrow(email);
-
         return movementRepository.findByStoreAndType(store, type)
-                .stream()
-                .map(this::mapMovement)
-                .toList();
+                .stream().map(this::mapMovement).toList();
     }
 
-    // Movimientos de un producto específico
+    @Transactional(readOnly = true)
     public List<MovementResponse> getMovementsByProduct(Long productId, String email) {
-
         Store store = findStoreOrThrow(email);
         Product product = findProductOrThrow(productId);
         validateOwnership(product.getStore(), store);
 
         return movementRepository.findByProductOrderByCreatedAtDesc(product)
-                .stream()
-                .map(this::mapMovement)
-                .toList();
+                .stream().map(this::mapMovement).toList();
     }
 
     // =========================================================
-    // ALERTAS DE STOCK
+    // ALERTAS
     // =========================================================
-
+    @Transactional(readOnly = true)
     public List<StockAlertResponse> getAlerts(String email) {
-
         Store store = findStoreOrThrow(email);
         List<Product> products = productRepository.findByStore(store);
-
         return buildAlerts(store, products);
     }
 
     // =========================================================
-    // CONFIGURAR STOCK MÍNIMO por producto
+    // CONFIGURAR STOCK MÍNIMO
     // =========================================================
-
     @Transactional
     public void setMinStock(Long productId, StockConfigRequest request, String email) {
 
@@ -181,15 +164,14 @@ public class InventoryService {
     }
 
     // =========================================================
-    // STOCK ACTUAL de todos los productos de la tienda
+    // STOCK ACTUAL ← EL QUE FALLABA
     // =========================================================
-
+    @Transactional(readOnly = true)
     public List<StockItemResponse> getCurrentStock(String email) {
 
         Store store = findStoreOrThrow(email);
         List<Product> products = productRepository.findByStore(store);
 
-        // ✅ REEMPLAZA este bloque en getCurrentStock()
         return products.stream().map(p -> {
             int minStock = stockConfigRepository.findByProduct(p)
                     .map(StockConfig::getMinStock)
@@ -201,16 +183,15 @@ public class InventoryService {
                     .currentStock(p.getStock())
                     .minStock(minStock)
                     .status(p.getStatus().name())
-                    .mainImageUrl(p.getMainImageUrl()) // ← NUEVO
-                    .categoryIcon(p.getCategory() != null ? p.getCategory().getIcon() : null) // ← NUEVO
+                    .mainImageUrl(p.getMainImageUrl())
+                    .categoryIcon(p.getCategory() != null ? p.getCategory().getIcon() : null)
                     .build();
         }).toList();
     }
 
     // =========================================================
-    // INTERNAL HELPERS
+    // PRIVATE HELPERS
     // =========================================================
-
     private Store findStoreOrThrow(String email) {
         return storeRepository.findByOwnerEmail(email)
                 .orElseThrow(() -> new IllegalStateException("No tienes ninguna tienda registrada"));
@@ -234,28 +215,21 @@ public class InventoryService {
         return products.stream()
                 .filter(p -> p.getStatus() != ProductStatus.INACTIVE)
                 .filter(p -> {
-                    int minStock = configs.stream()
+                    int min = configs.stream()
                             .filter(c -> c.getProduct().getId().equals(p.getId()))
-                            .findFirst()
-                            .map(StockConfig::getMinStock)
-                            .orElse(0);
-                    return p.getStock() == 0 || p.getStock() <= minStock;
+                            .findFirst().map(StockConfig::getMinStock).orElse(0);
+                    return p.getStock() == 0 || p.getStock() <= min;
                 })
                 .map(p -> {
-                    int minStock = configs.stream()
+                    int min = configs.stream()
                             .filter(c -> c.getProduct().getId().equals(p.getId()))
-                            .findFirst()
-                            .map(StockConfig::getMinStock)
-                            .orElse(0);
-
-                    String level = p.getStock() == 0 ? "CRITICAL" : "LOW";
-
+                            .findFirst().map(StockConfig::getMinStock).orElse(0);
                     return StockAlertResponse.builder()
                             .productId(p.getId())
                             .productName(p.getName())
                             .currentStock(p.getStock())
-                            .minStock(minStock)
-                            .level(level)
+                            .minStock(min)
+                            .level(p.getStock() == 0 ? "CRITICAL" : "LOW")
                             .build();
                 })
                 .toList();
