@@ -31,8 +31,9 @@ public class ProductService {
     private final CategoryRepository categoryRepository;
 
     // =========================================================
-    // ADMIN - List All Products (for moderation)
+    // ADMIN - List All Products
     // =========================================================
+    @Transactional(readOnly = true)
     public List<ProductResponse> getAllProducts() {
         return productRepository.findAll()
                 .stream()
@@ -40,20 +41,15 @@ public class ProductService {
                 .toList();
     }
 
-    // ==============================
-    // ADMIN - Get All Products (paginado)
-    // ==============================
+    @Transactional(readOnly = true)
     public PagedResponse<ProductResponse> getAllProducts(Pageable pageable) {
-
         return PagedResponse.of(
-                productRepository.findAll(pageable)
-                        .map(this::mapToResponse));
+                productRepository.findAll(pageable).map(this::mapToResponse));
     }
 
     // =========================================================
     // CREATE PRODUCT (OWNER)
     // =========================================================
-
     @Transactional
     public ProductResponse createProduct(Long storeId, ProductRequest request, String email) {
 
@@ -67,7 +63,6 @@ public class ProductService {
             throw new IllegalStateException("Ya existe un producto con ese nombre en esta store");
         }
 
-        // Resolver categoría opcional
         Category category = null;
         if (request.getCategoryId() != null) {
             category = categoryRepository.findById(request.getCategoryId())
@@ -90,20 +85,12 @@ public class ProductService {
     }
 
     // =========================================================
-    // PUBLIC - Marketplace global (todos los productos activos, paginado)
-    // GET /api/products/marketplace
+    // MARKETPLACE GLOBAL
     // =========================================================
-
+    @Transactional(readOnly = true)
     public Page<ProductResponse> getMarketplaceProducts(
-            String name,
-            Long categoryId,
-            BigDecimal minPrice,
-            BigDecimal maxPrice,
-            String city,
-            Integer page,
-            Integer size,
-            String sortBy,
-            String sortDir) {
+            String name, Long categoryId, BigDecimal minPrice, BigDecimal maxPrice,
+            String city, Integer page, Integer size, String sortBy, String sortDir) {
 
         if (name == null)
             name = "";
@@ -149,115 +136,81 @@ public class ProductService {
     }
 
     // =========================================================
-    // PUBLIC - Productos por categoría
-    // GET /api/products/category/{categoryId}
+    // PÚBLICO
     // =========================================================
-
+    @Transactional(readOnly = true)
     public List<ProductResponse> getProductsByCategory(Long categoryId) {
         Category category = categoryRepository.findById(categoryId)
                 .orElseThrow(() -> new IllegalArgumentException("Categoría no encontrada"));
-
         return productRepository.findByCategoryAndStatus(category, ProductStatus.ACTIVE)
-                .stream()
-                .map(this::mapToResponse)
-                .toList();
+                .stream().map(this::mapToResponse).toList();
     }
 
-    // =========================================================
-    // PUBLIC METHODS (SOLO STORE APPROVED)
-    // =========================================================
-
+    @Transactional(readOnly = true)
     public List<ProductResponse> getProductsByStore(Long storeId) {
         Store store = findStoreOrThrow(storeId);
         validateStorePublicAccess(store);
-
-        return productRepository
-                .findByStoreAndStatus(store, ProductStatus.ACTIVE)
-                .stream()
-                .map(this::mapToResponse)
-                .toList();
+        return productRepository.findByStoreAndStatus(store, ProductStatus.ACTIVE)
+                .stream().map(this::mapToResponse).toList();
     }
 
+    @Transactional(readOnly = true)
     public ProductResponse getProductById(Long productId) {
         Product product = findProductOrThrow(productId);
         validateStorePublicAccess(product.getStore());
         return mapToResponse(product);
     }
 
+    @Transactional(readOnly = true)
     public List<ProductResponse> getFeaturedProducts(Long storeId) {
         Store store = findStoreOrThrow(storeId);
         validateStorePublicAccess(store);
-
-        return productRepository
-                .findByStoreAndFeaturedTrueAndStatus(store, ProductStatus.ACTIVE)
-                .stream()
-                .map(this::mapToResponse)
-                .toList();
+        return productRepository.findByStoreAndFeaturedTrueAndStatus(store, ProductStatus.ACTIVE)
+                .stream().map(this::mapToResponse).toList();
     }
 
-    // =========================================================
-    // PUBLIC - Featured globales para el marketplace home
-    // GET /api/products/marketplace/featured
-    // =========================================================
-
+    @Transactional(readOnly = true)
     public List<ProductResponse> getGlobalFeaturedProducts() {
-        return productRepository
-                .findByFeaturedTrueAndStatus(ProductStatus.ACTIVE)
-                .stream()
-                .map(this::mapToResponse)
-                .toList();
+        return productRepository.findByFeaturedTrueAndStatus(ProductStatus.ACTIVE)
+                .stream().map(this::mapToResponse).toList();
     }
 
+    @Transactional(readOnly = true)
     public List<ProductResponse> getOutOfStockProducts(Long storeId) {
         Store store = findStoreOrThrow(storeId);
         validateStorePublicAccess(store);
-
-        return productRepository
-                .findByStoreAndStatus(store, ProductStatus.OUT_OF_STOCK)
-                .stream()
-                .map(this::mapToResponse)
-                .toList();
+        return productRepository.findByStoreAndStatus(store, ProductStatus.OUT_OF_STOCK)
+                .stream().map(this::mapToResponse).toList();
     }
 
     // =========================================================
-    // OWNER VIEW — con storeId en URL
+    // OWNER VIEW
     // =========================================================
-
+    @Transactional(readOnly = true)
     public List<ProductResponse> getAllProductsByStoreForOwner(Long storeId, String email) {
         Store store = findStoreOrThrow(storeId);
         validateOwnership(store, email);
-
         return productRepository.findByStore(store)
-                .stream()
-                .map(this::mapToResponse)
-                .toList();
+                .stream().map(this::mapToResponse).toList();
     }
 
-    // =========================================================
-    // OWNER VIEW — sin storeId, se extrae del JWT
-    // =========================================================
-
+    @Transactional(readOnly = true)
     public List<ProductResponse> getMyStoreProducts(String email) {
         Store store = storeRepository.findByOwnerEmail(email)
                 .orElseThrow(() -> new IllegalStateException("No tienes ninguna tienda registrada"));
-
         return productRepository.findByStore(store)
-                .stream()
-                .map(this::mapToResponse)
-                .toList();
+                .stream().map(this::mapToResponse).toList();
     }
 
     // =========================================================
     // UPDATE (OWNER)
     // =========================================================
-
     @Transactional
     public ProductResponse updateProduct(Long productId, ProductRequest request, String email) {
 
         Product product = findProductOrThrow(productId);
         validateOwnership(product.getStore(), email);
 
-        // Resolver categoría
         Category category = null;
         if (request.getCategoryId() != null) {
             category = categoryRepository.findById(request.getCategoryId())
@@ -279,7 +232,6 @@ public class ProductService {
     // =========================================================
     // SOFT DELETE (OWNER)
     // =========================================================
-
     @Transactional
     public void deleteProduct(Long productId, String email) {
         Product product = findProductOrThrow(productId);
@@ -290,21 +242,17 @@ public class ProductService {
     // =========================================================
     // ADMIN MODERATION
     // =========================================================
-
     @Transactional
     public void adminDeactivateProduct(Long productId) {
-        Product product = findProductOrThrow(productId);
-        product.deactivate();
+        findProductOrThrow(productId).deactivate();
     }
 
     @Transactional
     public void adminActivateProduct(Long productId) {
         Product product = findProductOrThrow(productId);
-        if (product.getStock() == 0) {
-            product.setStatus(ProductStatus.OUT_OF_STOCK);
-        } else {
-            product.setStatus(ProductStatus.ACTIVE);
-        }
+        product.setStatus(product.getStock() == 0
+                ? ProductStatus.OUT_OF_STOCK
+                : ProductStatus.ACTIVE);
     }
 
     @Transactional
@@ -316,53 +264,37 @@ public class ProductService {
     // =========================================================
     // IMAGES
     // =========================================================
-
     @Transactional
     public void addProductImage(Long productId, String imageUrl, String email) {
         Product product = findProductOrThrow(productId);
         validateOwnership(product.getStore(), email);
-
-        ProductImage image = ProductImage.builder()
-                .product(product)
-                .imageUrl(imageUrl.trim())
-                .build();
-
-        productImageRepository.save(image);
+        productImageRepository.save(
+                ProductImage.builder().product(product).imageUrl(imageUrl.trim()).build());
     }
 
+    @Transactional(readOnly = true)
     public List<String> getProductImages(Long productId) {
         Product product = findProductOrThrow(productId);
-
-        return productImageRepository
-                .findByProductAndStatus(product, ImageStatus.ACTIVE)
-                .stream()
-                .map(ProductImage::getImageUrl)
-                .toList();
+        return productImageRepository.findByProductAndStatus(product, ImageStatus.ACTIVE)
+                .stream().map(ProductImage::getImageUrl).toList();
     }
 
     @Transactional
     public void deleteProductImage(Long imageId, String email) {
         ProductImage image = productImageRepository.findById(imageId)
                 .orElseThrow(() -> new IllegalArgumentException("Imagen no encontrada"));
-
         validateOwnership(image.getProduct().getStore(), email);
         image.deactivate();
     }
 
     // =========================================================
-    // PAGINACIÓN + FILTROS (por STORE — PÚBLICO)
+    // PAGINACIÓN + FILTROS (por STORE)
     // =========================================================
-
+    @Transactional(readOnly = true)
     public Page<ProductResponse> filterProductsPaged(
-            Long storeId,
-            String name,
-            BigDecimal minPrice,
-            BigDecimal maxPrice,
-            List<ProductStatus> statusList,
-            Integer page,
-            Integer size,
-            String sortBy,
-            String sortDir) {
+            Long storeId, String name, BigDecimal minPrice, BigDecimal maxPrice,
+            List<ProductStatus> statusList, Integer page, Integer size,
+            String sortBy, String sortDir) {
 
         Store store = findStoreOrThrow(storeId);
         validateStorePublicAccess(store);
@@ -385,17 +317,15 @@ public class ProductService {
                 size != null ? size : 10,
                 Sort.by(direction, sortBy != null ? sortBy : "createdAt"));
 
-        Page<Product> pageResult = productRepository
+        return productRepository
                 .findByStoreAndStatusInAndNameContainingIgnoreCaseAndPriceBetween(
-                        store, statusList, name, minPrice, maxPrice, pageable);
-
-        return pageResult.map(this::mapToResponse);
+                        store, statusList, name, minPrice, maxPrice, pageable)
+                .map(this::mapToResponse);
     }
 
     // =========================================================
-    // INTERNAL VALIDATIONS
+    // PRIVATE HELPERS
     // =========================================================
-
     private Store findStoreOrThrow(Long storeId) {
         return storeRepository.findById(storeId)
                 .orElseThrow(() -> new IllegalArgumentException("Store no encontrada"));
@@ -424,6 +354,9 @@ public class ProductService {
         }
     }
 
+    // =========================================================
+    // MAP — dentro de @Transactional, accede lazy sin problema
+    // =========================================================
     private ProductResponse mapToResponse(Product product) {
 
         List<String> imageUrls = productImageRepository
@@ -442,11 +375,9 @@ public class ProductService {
                 .featured(product.isFeatured())
                 .mainImageUrl(product.getMainImageUrl())
                 .imageUrls(imageUrls)
-                // Categoría
                 .categoryId(product.getCategory() != null ? product.getCategory().getId() : null)
                 .categoryName(product.getCategory() != null ? product.getCategory().getName() : null)
                 .categoryIcon(product.getCategory() != null ? product.getCategory().getIcon() : null)
-                // Store info enriquecida
                 .storeId(product.getStore().getId())
                 .storeName(product.getStore().getName())
                 .storeCity(product.getStore().getCity())
