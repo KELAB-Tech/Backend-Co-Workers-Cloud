@@ -30,100 +30,101 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-    private final JwtAuthenticationFilter jwtFilter;
+        private final JwtAuthenticationFilter jwtFilter;
 
-    @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        @Bean
+        public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
 
-        http
-                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-                .csrf(AbstractHttpConfigurer::disable)
-                .sessionManagement(session -> session
-                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                http
+                                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                                .csrf(AbstractHttpConfigurer::disable)
+                                .sessionManagement(session -> session
+                                                .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
-                .exceptionHandling(ex -> ex
-                        .authenticationEntryPoint((request, response, authException) -> {
-                            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                            response.setContentType("application/json");
-                            response.getWriter().write("{\"error\": \"Unauthorized\"}");
-                        })
-                        .accessDeniedHandler((request, response, accessDeniedException) -> {
-                            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-                            response.setContentType("application/json");
-                            response.getWriter().write("{\"error\": \"Forbidden\"}");
-                        }))
+                                .exceptionHandling(ex -> ex
+                                                .authenticationEntryPoint((request, response, authException) -> {
+                                                        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                                                        response.setContentType("application/json");
+                                                        response.getWriter().write("{\"error\": \"Unauthorized\"}");
+                                                })
+                                                .accessDeniedHandler((request, response, accessDeniedException) -> {
+                                                        response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                                                        response.setContentType("application/json");
+                                                        response.getWriter().write("{\"error\": \"Forbidden\"}");
+                                                }))
 
-                .authorizeHttpRequests(auth -> auth
+                                .authorizeHttpRequests(auth -> auth
 
-                        // ── AUTH ────────────────────────────────────────
-                        .requestMatchers("/api/auth/**").permitAll()
+                                                // ── AUTH ────────────────────────────────────────
+                                                .requestMatchers("/api/auth/**").permitAll()
 
-                        // ── PREFLIGHT ───────────────────────────────────
-                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                                                // ── PREFLIGHT ───────────────────────────────────
+                                                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-                        // ── MARKETPLACE PÚBLICO (GET) ───────────────────
+                                                // ── MARKETPLACE PÚBLICO (GET) ───────────────────
 
-                        // Productos: marketplace global, detalle, imágenes, categoría
-                        .requestMatchers(HttpMethod.GET,
-                                "/api/products/marketplace",
-                                "/api/products/marketplace/**",
-                                "/api/products/category/**",
-                                "/api/products/{id}",
-                                "/api/products/{id}/images",
-                                "/api/products/store/**")
-                        .permitAll()
+                                                // Productos: marketplace global, detalle, imágenes, categoría
+                                                .requestMatchers(HttpMethod.GET,
+                                                                "/api/products/marketplace",
+                                                                "/api/products/marketplace/**",
+                                                                "/api/products/category/**",
+                                                                "/api/products/{id}",
+                                                                "/api/products/{id}/images",
+                                                                "/api/products/store/**")
+                                                .permitAll()
 
-                        // Categorías: listar activas (público)
-                        .requestMatchers(HttpMethod.GET,
-                                "/api/categories")
-                        .permitAll()
+                                                // Categorías: listar activas (público)
+                                                .requestMatchers(HttpMethod.GET,
+                                                                "/api/categories")
+                                                .permitAll()
 
-                        // Tiendas: listar aprobadas, detalle, imágenes, productos
-                        .requestMatchers(HttpMethod.GET,
-                                "/api/store",
-                                "/api/store/{id}",
-                                "/api/store/{id}/images",
-                                "/api/store/store/{storeId}")
-                        .permitAll()
+                                                // Tiendas: listar aprobadas, detalle, imágenes, productos
+                                                .requestMatchers(HttpMethod.GET,
+                                                                "/api/store",
+                                                                "/api/store/{id}",
+                                                                "/api/store/{id}/images",
+                                                                "/api/store/store/{storeId}")
+                                                .permitAll()
 
-                        // ── TODO LO DEMÁS REQUIERE AUTH ─────────────────
-                        .anyRequest().authenticated())
+                                                // ── TODO LO DEMÁS REQUIERE AUTH ─────────────────
+                                                .anyRequest().authenticated())
 
-                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
+                                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
 
-        return http.build();
-    }
+                return http.build();
+        }
 
-    @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder(12);
-    }
+        @Bean
+        public PasswordEncoder passwordEncoder() {
+                return new BCryptPasswordEncoder(12);
+        }
 
-    @Bean
-    public AuthenticationManager authenticationManager(
-            AuthenticationConfiguration config) throws Exception {
-        return config.getAuthenticationManager();
-    }
+        @Bean
+        public AuthenticationManager authenticationManager(
+                        AuthenticationConfiguration config) throws Exception {
+                return config.getAuthenticationManager();
+        }
 
-    @Bean
-    public CorsConfigurationSource corsConfigurationSource() {
+        @Bean
+        public CorsConfigurationSource corsConfigurationSource() {
 
-        CorsConfiguration configuration = new CorsConfiguration();
+                CorsConfiguration configuration = new CorsConfiguration();
 
-        configuration.setAllowedOrigins(List.of(
-                "http://localhost:3000",
-                "http://localhost:3001", "http://localhost:3002", "http://172.20.10.2:3002"));
+                configuration.setAllowedOrigins(List.of(
+                                "http://localhost:3000",
+                                "http://localhost:3001", "http://localhost:3002", "https://cloud.kelab.com.co/",
+                                "https://admin.cloud.kelab.com.co/", "https://app.cloud.kelab.com.co/"));
 
-        configuration.setAllowedMethods(List.of(
-                "GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+                configuration.setAllowedMethods(List.of(
+                                "GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
 
-        configuration.setAllowedHeaders(List.of("*"));
+                configuration.setAllowedHeaders(List.of("*"));
 
-        configuration.setAllowCredentials(true);
+                configuration.setAllowCredentials(true);
 
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", configuration);
+                UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+                source.registerCorsConfiguration("/**", configuration);
 
-        return source;
-    }
+                return source;
+        }
 }
