@@ -24,6 +24,12 @@ public class InventoryService {
     private final InventoryMovementRepository movementRepository;
     private final StockConfigRepository stockConfigRepository;
 
+    /**
+     * Umbral por defecto cuando el usuario no ha configurado un minStock.
+     * Si el stock cae a 5 o menos → alerta LOW.
+     */
+    private static final int DEFAULT_MIN_STOCK = 5;
+
     // =========================================================
     // RESUMEN GENERAL
     // =========================================================
@@ -164,7 +170,7 @@ public class InventoryService {
     }
 
     // =========================================================
-    // STOCK ACTUAL ← EL QUE FALLABA
+    // STOCK ACTUAL
     // =========================================================
     @Transactional(readOnly = true)
     public List<StockItemResponse> getCurrentStock(String email) {
@@ -173,9 +179,10 @@ public class InventoryService {
         List<Product> products = productRepository.findByStore(store);
 
         return products.stream().map(p -> {
+            // ✅ usa DEFAULT_MIN_STOCK si no hay configuración
             int minStock = stockConfigRepository.findByProduct(p)
                     .map(StockConfig::getMinStock)
-                    .orElse(0);
+                    .orElse(DEFAULT_MIN_STOCK);
 
             return StockItemResponse.builder()
                     .productId(p.getId())
@@ -215,21 +222,30 @@ public class InventoryService {
         return products.stream()
                 .filter(p -> p.getStatus() != ProductStatus.INACTIVE)
                 .filter(p -> {
+                    // ✅ DEFAULT_MIN_STOCK en vez de 0
                     int min = configs.stream()
                             .filter(c -> c.getProduct().getId().equals(p.getId()))
-                            .findFirst().map(StockConfig::getMinStock).orElse(0);
+                            .findFirst()
+                            .map(StockConfig::getMinStock)
+                            .orElse(DEFAULT_MIN_STOCK);
                     return p.getStock() == 0 || p.getStock() <= min;
                 })
                 .map(p -> {
                     int min = configs.stream()
                             .filter(c -> c.getProduct().getId().equals(p.getId()))
-                            .findFirst().map(StockConfig::getMinStock).orElse(0);
+                            .findFirst()
+                            .map(StockConfig::getMinStock)
+                            .orElse(DEFAULT_MIN_STOCK);
+
+                    // CRITICAL = sin stock, LOW = por debajo del mínimo
+                    String level = p.getStock() == 0 ? "CRITICAL" : "LOW";
+
                     return StockAlertResponse.builder()
                             .productId(p.getId())
                             .productName(p.getName())
                             .currentStock(p.getStock())
                             .minStock(min)
-                            .level(p.getStock() == 0 ? "CRITICAL" : "LOW")
+                            .level(level)
                             .build();
                 })
                 .toList();
